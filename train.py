@@ -2,12 +2,17 @@ import numpy as np
 import torch
 from sklearn.metrics import roc_auc_score
 from tqdm import tqdm
-import config as c
-from model import get_cs_flow_model, save_model, FeatureExtractor, nf_forward
-from utils import *
+from . import config as c
+from .model import get_cs_flow_model, save_model, try_load_model, FeatureExtractor, nf_forward
+from .utils import *
 
 
-def train(train_loader, test_loader):
+def train(train_loader, test_loader, load_if_exists: bool=True):
+    if load_if_exists:
+        maybe_model = try_load_model(c.modelname)
+        if isinstance(maybe_model, torch.nn.Module):
+            return maybe_model
+    
     model = get_cs_flow_model()
     optimizer = torch.optim.Adam(model.parameters(), lr=c.lr_init, eps=1e-04, weight_decay=1e-5)
     model.to(c.device)
@@ -85,4 +90,4 @@ def train(train_loader, test_loader):
         model.to('cpu')
         save_model(model, c.modelname)
 
-    return z_obs.max_score, z_obs.last, z_obs.min_loss_score
+    return model, z_obs.max_score, z_obs.last, z_obs.min_loss_score

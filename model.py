@@ -1,14 +1,14 @@
-import numpy as np
-import os
 import torch
 import torch.nn.functional as F
 from torch import nn
 from efficientnet_pytorch import EfficientNet
-import config as c
-from freia_funcs import *
+from . import config as c
+from .freia_funcs import InputNode, CrossConvolutions, parallel_glow_coupling_layer, ParallelPermute, Node, OutputNode, ReversibleGraphNet
+from pathlib import Path
+from typing import Optional
 
-WEIGHT_DIR = './weights'
-MODEL_DIR = './models/tmp'
+
+MODEL_DIR = Path(__file__).parent.joinpath('./models').resolve()
 
 
 def get_cs_flow_model(input_dim=c.n_feat):
@@ -65,13 +65,18 @@ class FeatureExtractor(nn.Module):
         return y
 
 
-def save_model(model, filename):
-    if not os.path.exists(MODEL_DIR):
-        os.makedirs(MODEL_DIR)
-    torch.save(model, os.path.join(MODEL_DIR, filename))
+def save_model(model: torch.nn.Module, filename):
+    MODEL_DIR.mkdir(exist_ok=True)
+    torch.save(model.state_dict(), MODEL_DIR.joinpath(f'./{filename}'))
 
 
-def load_model(filename):
-    path = os.path.join(MODEL_DIR, filename)
-    model = torch.load(path)
+def load_model(filename, input_dim=c.n_feat):
+    model = get_cs_flow_model()
+    model.load_state_dict(state_dict=torch.load(MODEL_DIR.joinpath(f'./{filename}'), weights_only=True))
     return model
+
+def try_load_model(filename) -> Optional[torch.nn.Module]:
+    model = MODEL_DIR.joinpath(f'./{filename}')
+    if model.exists():
+        return load_model(filename=filename)
+    return None

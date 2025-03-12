@@ -1,7 +1,7 @@
 import os
 import torch
 from torchvision import datasets, transforms
-import config as c
+from . import config as c
 from torchvision.datasets import ImageFolder
 from torch.utils.data import Dataset
 import numpy as np
@@ -33,7 +33,7 @@ def cat_maps(z):
     return torch.cat([z[i].reshape(z[i].shape[0], -1) for i in range(len(z))], dim=1)
 
 
-def load_datasets(dataset_path, class_name):
+def load_datasets(dataset_path: str, class_name: str):
     '''
     Expected folder/file format to find anomalies of class <class_name> from dataset location <dataset_path>:
 

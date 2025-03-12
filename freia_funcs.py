@@ -5,8 +5,8 @@ import torch.nn as nn
 from torch.autograd import Variable
 from math import exp
 import numpy as np
-import config as c
-from utils import *
+from . import config as c
+from .utils import *
 
 VERBOSE = False
 

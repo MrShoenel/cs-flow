@@ -2,26 +2,20 @@ import numpy as np
 import torch
 from sklearn.metrics import roc_auc_score, roc_curve, auc
 from tqdm import tqdm
-from model import load_model, FeatureExtractor
-import config as c
-from utils import *
+from .model import load_model, FeatureExtractor
+from . import config as c
+from .utils import *
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 import PIL
 from os.path import join
-import os
+from pathlib import Path
 from copy import deepcopy
 
 
-localize = True
-upscale_mode = 'bilinear'
-score_export_dir = join('./viz/scores/', c.modelname)
-os.makedirs(score_export_dir, exist_ok=True)
-map_export_dir = join('./viz/maps/', c.modelname)
-os.makedirs(map_export_dir, exist_ok=True)
 
 
-def compare_histogram(scores, classes, thresh=2.5, n_bins=64):
+def compare_histogram(scores, classes, score_export_dir, thresh=2.5, n_bins=64):
     classes = deepcopy(classes)
     scores = deepcopy(scores)
     classes[classes > 0] = 1
@@ -44,7 +38,7 @@ def compare_histogram(scores, classes, thresh=2.5, n_bins=64):
     plt.savefig(join(score_export_dir, 'score_histogram.png'), bbox_inches='tight', pad_inches=0)
 
 
-def viz_roc(values, classes, class_names):
+def viz_roc(values, classes, class_names, score_export_dir):
     def export_roc(values, classes, export_name='all'):
         # Compute ROC curve and ROC area for each class
         classes = deepcopy(classes)
@@ -75,7 +69,7 @@ def viz_roc(values, classes, class_names):
         export_roc(values_filtered, classes_filtered, export_name=class_names[filtered_indices[-1]])
 
 
-def viz_maps(maps, name, label):
+def viz_maps(maps, name, label, map_export_dir, upscale_mode='bilinear'):
     img_path = img_paths[c.viz_sample_count]
     image = PIL.Image.open(img_path).convert('RGB')
     image = np.array(image)
@@ -98,7 +92,7 @@ def viz_maps(maps, name, label):
     return
 
 
-def viz_map_array(maps, labels, n_col=8, subsample=4, max_figures=-1):
+def viz_map_array(maps, labels, map_export_dir, img_paths, n_col=8, subsample=4, max_figures=-1, upscale_mode = 'bilinear'):
     plt.clf()
     fig, subplots = plt.subplots(3, n_col)
 
@@ -143,7 +137,7 @@ def viz_map_array(maps, labels, n_col=8, subsample=4, max_figures=-1):
     return
 
 
-def evaluate(model, test_loader):
+def evaluate(model, test_loader, score_export_dir, map_export_dir, img_paths, localize: bool=True):
     model.to(c.device)
     model.eval()
     if not c.pre_extracted:
@@ -184,22 +178,45 @@ def evaluate(model, test_loader):
     anomaly_score = np.concatenate(anomaly_score)
     test_labels = np.concatenate(test_labels)
 
-    compare_histogram(anomaly_score, test_labels)
+    compare_histogram(anomaly_score, test_labels, score_export_dir)
 
     class_names = [img_path.split('/')[-2] for img_path in img_paths]
-    viz_roc(anomaly_score, test_labels, class_names)
+    viz_roc(anomaly_score, test_labels, class_names, score_export_dir)
 
     test_labels = np.array([1 if l > 0 else 0 for l in test_labels])
     auc_score = roc_auc_score(test_labels, anomaly_score)
     print('AUC:', auc_score)
 
     if localize:
-        viz_map_array(all_maps, test_labels)
+        # viz_map_array(all_maps, test_labels, map_export_dir, img_paths)
+        viz_map_array_correct(all_maps, test_labels, map_export_dir, img_paths, anomaly_score)
 
     return
 
-train_set, test_set = load_datasets(c.dataset_path, c.class_name)
-img_paths = test_set.paths if c.pre_extracted else [p for p, l in test_set.samples]
-_, test_loader = make_dataloaders(train_set, test_set)
-mod = load_model(c.modelname)
-evaluate(mod, test_loader)
+
+def viz_map_array_correct(maps, labels, map_export_dir, img_paths: list[str], scores: list[float], upscale_mode='bilinear'):
+
+    temp = np.array([t2np(m) for m in maps])
+    vmin, vmax = np.min(temp), np.max(temp)
+
+    for idx, path in enumerate(img_paths):
+        anomaly_description = path.split('/')[-2]
+        image = PIL.Image.open(path).convert('RGB')
+        image = np.array(image)
+        map = t2np(F.interpolate(maps[idx][None, None], size=image.shape[:2], mode=upscale_mode, align_corners=False))[0, 0]
+        print(f'type: {anomaly_description}; min/max: {np.min(map)}/{np.max(map)}')
+        
+        plt.clf()
+        plt.title(f'{labels[idx]}, score={scores[idx]}')
+        plt.imshow(image)
+        plt.axis('off')
+        plt.imshow(map, cmap='viridis', alpha=0.6, vmin=vmin, vmax=vmax)
+        plt.savefig(join(map_export_dir, f'{anomaly_description}_{Path(path).name}'), bbox_inches='tight', pad_inches=0)
+
+
+if __name__ == '__main__':
+    train_set, test_set = load_datasets(c.dataset_path, c.class_name)
+    img_paths = test_set.paths if c.pre_extracted else [p for p, l in test_set.samples]
+    _, test_loader = make_dataloaders(train_set, test_set)
+    mod = load_model(c.modelname)
+    evaluate(mod, test_loader)

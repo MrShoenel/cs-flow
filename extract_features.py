@@ -1,13 +1,13 @@
 import numpy as np
 import torch
 from tqdm import tqdm
-import config as c
-from model import FeatureExtractor
-from utils import *
+from . import config as c
+from .model import FeatureExtractor
+from .utils import *
 import os
 
 
-def extract(train_loader, test_loader, class_name):
+def extract(train_loader, test_loader, export_dir, class_name):
     model = FeatureExtractor()
     model.to(c.device)
     model.eval()
@@ -30,12 +30,13 @@ def extract(train_loader, test_loader, class_name):
                 np.save(export_dir + class_name + '_labels', labels)
 
 
-export_name = c.class_name
-export_dir = 'data/features/' + export_name + '/'
-c.pre_extracted = False
-os.makedirs(export_dir, exist_ok=True)
-train_set, test_set = load_datasets(c.dataset_path, c.class_name)
-train_loader, test_loader = make_dataloaders(train_set, test_set)
-extract(train_loader, test_loader, c.class_name)
-paths = [p for p, l in test_set.samples]
-np.save(export_dir + c.class_name + '_image_paths.npy', paths)
+if __name__ == '__main__':
+    export_name = c.class_name
+    export_dir = 'data/features/' + export_name + '/'
+    c.pre_extracted = False
+    os.makedirs(export_dir, exist_ok=True)
+    train_set, test_set = load_datasets(c.dataset_path, c.class_name)
+    train_loader, test_loader = make_dataloaders(train_set, test_set)
+    extract(train_loader, test_loader, c.class_name)
+    paths = [p for p, l in test_set.samples]
+    np.save(export_dir + c.class_name + '_image_paths.npy', paths)
