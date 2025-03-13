@@ -184,8 +184,12 @@ def evaluate(model, test_loader, score_export_dir, map_export_dir, img_paths, lo
     viz_roc(anomaly_score, test_labels, class_names, score_export_dir)
 
     test_labels = np.array([1 if l > 0 else 0 for l in test_labels])
+    fpr, tpr, thresholds = roc_curve(y_true=test_labels, y_score=anomaly_score)
+    youden_j = tpr - fpr
+    optimal_idx = np.argmax(youden_j)
+    optimal_threshold = thresholds[optimal_idx]
     auc_score = roc_auc_score(test_labels, anomaly_score)
-    print('AUC:', auc_score)
+    print(f'AUC: {auc_score:.4f}\tOptimal Threshold: {optimal_threshold:.4f}')
 
     if localize:
         # viz_map_array(all_maps, test_labels, map_export_dir, img_paths)
