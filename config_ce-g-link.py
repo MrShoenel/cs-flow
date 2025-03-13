@@ -2,12 +2,12 @@
 research purposes. Don't try this code if you are a software engineer.'''
 
 # device settings
-device = 'cuda:3'  # or 'cpu'
+device = 'cuda:7'  # or 'cpu'
 
 # data settings
 dataset_path = "data/images"  # parent directory of datasets
-class_name = "mvtec-cable"  # dataset subdirectory
-modelname = "mvtec-cable"  # export evaluations/logs with this name
+class_name = "ce-g-link"  # dataset subdirectory
+modelname = "ce-g-link"  # export evaluations/logs with this name
 pre_extracted = True  # were feature preextracted with extract_features?
 
 img_size = (768, 768)  # image size of highest scale, others are //2, //4
